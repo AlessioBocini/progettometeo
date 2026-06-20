@@ -1,0 +1,166 @@
+name: Publish image
+
+on:
+  push:
+    branches: [ "staging" ]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+
+  setup-env:
+    runs-on: ubuntu-24.04
+    outputs:
+      target_env: ${{ steps.set-env.outputs.target_env }}
+    steps:
+      - id: set-env
+        env:
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          if [[ "$GITHUB_REF" == "refs/heads/staging" ]]; then
+            echo "target_env=staging" >> $GITHUB_OUTPUT
+          else
+            echo "target_env=dev" >> $GITHUB_OUTPUT
+          fi  
+
+  mvn-tests:
+    runs-on: ubuntu-24.04
+    if: setup-env.outputs.target_env == 'staging'
+    needs: [setup-env]
+    name: Run Maven Tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25 
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Maven Tests
+        run: mvn test
+   
+  semgrep-sast-scan:
+    runs-on: ubuntu-24.04
+    if: setup-env.outputs.target_env == 'staging'
+    needs: [mvn-tests]
+    name: Semgrep SAST Scan
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+
+      - name: Install Semgrep
+        run: |
+          python -m pip install --upgrade pip
+          pip install semgrep
+
+      - name: Semgrep Scan
+        run: semgrep scan --config auto --error
+            
+  trivy-sca-dep-check:
+    if: setup-env.outputs.target_env == 'staging'
+    runs-on: ubuntu-24.04
+    needs: [mvn-tests]
+    name: Trivy SCA and Dependency Check
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25 
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1' 
+          severity: 'LOW,MEDIUM,HIGH,CRITICAL,UNKNOWN'
+          ignore-unfixed: true
+
+      - name: Upload Report
+        if: always() # Carica il report anche se i test falliscono
+        uses: actions/upload-artifact@v4
+        with:
+          name: Security-Reports
+          path: |
+            target/dependency-check-report.
+            
+  checkov:
+    runs-on: ubuntu-24.04
+    needs: [semgrep-sast-scan, trivy-sca-dep-check] 
+    if: setup-env.outputs.target_env == 'staging'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkov GitHub Action
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: dockerfile
+
+  build-and-push:
+    runs-on: ubuntu-24.04
+    needs: [checkov]
+    environment:
+      name: ${{ setup-env.outputs.target_env }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Dockerfile
+        run: |
+          if [ ! -f Dockerfile ]; then
+            echo "Dockerfile non trovato"
+            exit 1
+          fi
+      
+      - name: Build image locally
+        run: |
+          docker build -t ghcr.io/AlessioBocini/progettometeo:${{ github.sha }} .
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          image-ref: 'ghcr.io/AlessioBocini/progettometeo:${{ github.sha }}' 
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          exit-code: '1'
+          ignore-unfixed: true 
+          severity: 'LOW,MEDIUM,HIGH,CRITICAL,UNKNOWN'
+      
+      - name: Upload Trivy Image Scan Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Security-Reports Trivy Image Scan
+          path: trivy-image-results.sarif
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.TOKEN }}
+
+      - name: Push image
+        run: |
+          docker push ghcr.io/AlessioBocini/progettometeo:${{ github.sha }}
+
