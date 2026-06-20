@@ -118,7 +118,7 @@ jobs:
 
   build-and-push:
     runs-on: ubuntu-24.04
-    needs: [checkov]
+    needs: [checkov, setup-env]
     environment:
       name: ${{ setup-env.outputs.target_env }}
     steps:
