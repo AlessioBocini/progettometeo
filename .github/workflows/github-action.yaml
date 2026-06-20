@@ -49,7 +49,7 @@ jobs:
   semgrep-sast-scan:
     runs-on: ubuntu-24.04
     if: setup-env.outputs.target_env == 'staging'
-    needs: [mvn-tests]
+    needs: [setup-env, mvn-tests]
     name: Semgrep SAST Scan
     steps:
       - name: Checkout code
@@ -71,7 +71,7 @@ jobs:
   trivy-sca-dep-check:
     if: setup-env.outputs.target_env == 'staging'
     runs-on: ubuntu-24.04
-    needs: [mvn-tests]
+    needs: [setup-env, mvn-tests]
     name: Trivy SCA and Dependency Check
     steps:
       - name: Checkout Code
@@ -106,7 +106,7 @@ jobs:
             
   checkov:
     runs-on: ubuntu-24.04
-    needs: [semgrep-sast-scan, trivy-sca-dep-check] 
+    needs: [setup-env, semgrep-sast-scan, trivy-sca-dep-check] 
     if: setup-env.outputs.target_env == 'staging'
     steps:
       - uses: actions/checkout@v4
