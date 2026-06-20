@@ -135,12 +135,12 @@ jobs:
       
       - name: Build image locally
         run: |
-          docker build -t ghcr.io/AlessioBocini/progettometeo:${{ github.sha }} .
+          docker build -t ghcr.io/alessiobocini/progettometeo:${{ github.sha }} .
       
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.35.0
         with:
-          image-ref: 'ghcr.io/AlessioBocini/progettometeo:${{ github.sha }}' 
+          image-ref: 'ghcr.io/alessiobocini/progettometeo:${{ github.sha }}' 
           format: 'sarif'
           output: 'trivy-image-results.sarif'
           exit-code: '1'
@@ -162,5 +162,5 @@ jobs:
 
       - name: Push image
         run: |
-          docker push ghcr.io/AlessioBocini/progettometeo:${{ github.sha }}
+          docker push ghcr.io/alessiobocini/progettometeo:${{ github.sha }}
 
