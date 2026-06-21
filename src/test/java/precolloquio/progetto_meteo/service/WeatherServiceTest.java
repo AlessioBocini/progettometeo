@@ -101,7 +101,7 @@ public class WeatherServiceTest {
         Object[] dbRow = new Object[]{22.4444, 10.1111, 120.0};
         
         when(cityRepository.findAll()).thenReturn(List.of(citta1));
-        doReturn(dbRow).when(measurementRepository).getAverageMetricsByCityId(1L);
+        doReturn(List.<Object[]>of(dbRow)).when(measurementRepository).getAverageMetricsByCityId(1L);
         
         // When
         List<CityAverageResponse> result = weatherService.getAllCityAverages();
@@ -120,7 +120,7 @@ public class WeatherServiceTest {
         citta1.setId(1L);
 
         when(cityRepository.findAll()).thenReturn(List.of(citta1));
-        doReturn(null).when(measurementRepository).getAverageMetricsByCityId(1L);
+        doReturn(List.<Object[]>of(new Object[]{})).when(measurementRepository).getAverageMetricsByCityId(1L);
 
         // When
         List<CityAverageResponse> result = weatherService.getAllCityAverages();
@@ -158,8 +158,9 @@ public class WeatherServiceTest {
         citta1.setId(1L);
 
         when(cityRepository.findAll()).thenReturn(List.of(citta1));
-        doReturn(new Object[]{}).when(measurementRepository).getAverageMetricsByCityId(1L);
-
+        Object[] emptyArray = new Object[]{};
+        doReturn(java.util.Collections.singletonList(emptyArray))
+            .when(measurementRepository).getAverageMetricsByCityId(1L);
         // When
         List<CityAverageResponse> result = weatherService.getAllCityAverages();
 
@@ -177,7 +178,8 @@ public class WeatherServiceTest {
         citta1.setId(1L);
 
         when(cityRepository.findAll()).thenReturn(List.of(citta1));
-        doReturn(new Object[]{null, null, null}).when(measurementRepository).getAverageMetricsByCityId(1L);
+        Object[] dbRowWithNulls = new Object[]{null, null, null};
+        doReturn(java.util.Arrays.asList((Object) dbRowWithNulls)).when(measurementRepository).getAverageMetricsByCityId(1L);
 
         // When
         List<CityAverageResponse> result = weatherService.getAllCityAverages();
