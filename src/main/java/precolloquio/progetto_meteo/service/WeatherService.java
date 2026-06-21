@@ -91,7 +91,7 @@ public class WeatherService {
             if (results != null && !results.isEmpty()) {
                 Object[] averages = results.get(0); 
                 
-                if (averages != null && averages.length > 0 && averages[0] != null) {
+                if (averages.length > 0) {
                 
                     avgTemp = averages[0] != null ? ((Number) averages[0]).doubleValue() : 0.0;
                     avgWindSpeed = averages[1] != null ? ((Number) averages[1]).doubleValue() : 0.0;
@@ -119,7 +119,6 @@ public class WeatherService {
                 logger.error("Errore durante il recupero dei dati per " + city.getName(), e);
             }
         }
-        
         logger.info("Sincronizzazione completata.");
     }
 }
