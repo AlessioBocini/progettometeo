@@ -192,6 +192,88 @@ public class WeatherServiceTest {
     }
 
     @Test
+    public void getAllCityAverages_WhenResultsListIsEmpty_ShouldReturnZeroAverages() {
+        // Given: Il repository restituisce una lista vuota (nessuna riga dal DB)
+        City citta1 = new City("Citta1", 10.0, 20.0);
+        citta1.setId(1L);
+
+        when(cityRepository.findAll()).thenReturn(List.of(citta1));
+        doReturn(List.of()).when(measurementRepository).getAverageMetricsByCityId(1L); // Lista vuota reale
+
+        // When
+        List<CityAverageResponse> result = weatherService.getAllCityAverages();
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getAverageTemperature()).isEqualTo(0.0);
+        assertThat(result.get(0).getAverageWindSpeed()).isEqualTo(0.0);
+        assertThat(result.get(0).getAverageWindDirection()).isEqualTo(0.0);
+    }
+
+    @Test
+    public void getAllCityAverages_WhenSomeElementsAreNull_ShouldHandleThemMixingWithValidValues() {
+        // Given: L'array ha la temperatura, ma ha vento e direzione a null
+        City citta1 = new City("Citta1", 10.0, 20.0);
+        citta1.setId(1L);
+        Object[] dbRowMixed = new Object[]{25.5, null, null};
+
+        when(cityRepository.findAll()).thenReturn(List.of(citta1));
+        doReturn(java.util.Arrays.asList((Object) dbRowMixed)).when(measurementRepository).getAverageMetricsByCityId(1L);
+
+        // When
+        List<CityAverageResponse> result = weatherService.getAllCityAverages();
+
+        // Then: La temperatura si mappa correttamente, gli altri prendono il default (0.0)
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getAverageTemperature()).isEqualTo(25.5);
+        assertThat(result.get(0).getAverageWindSpeed()).isEqualTo(0.0);
+        assertThat(result.get(0).getAverageWindDirection()).isEqualTo(0.0);
+    }
+
+    @Test
+    public void syncWeatherData_WhenOneCityFails_ShouldStillProcessOtherCities() {
+        // Given: Due città, la prima fallirà l'aggiornamento, la seconda andrà a buon fine
+        City citta1 = new City("Citta1", 41.9028, 12.4964);
+        citta1.setId(1L);
+        City citta2 = new City("Citta2", 45.4642, 9.1900);
+        citta2.setId(2L);
+
+        when(cityRepository.findAll()).thenReturn(List.of(citta1, citta2));
+
+        try (MockedStatic<RestClient> mockedRestClientStatic = Mockito.mockStatic(RestClient.class)) {
+            RestClient mockClient = mock(RestClient.class);
+            RestClient.RequestHeadersUriSpec mockUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+            RestClient.ResponseSpec mockResponseSpec = mock(RestClient.ResponseSpec.class);
+
+            mockedRestClientStatic.when(RestClient::create).thenReturn(mockClient);
+            when(mockClient.get()).thenReturn(mockUriSpec);
+            when(mockUriSpec.uri(anyString())).thenReturn(mockUriSpec);
+            when(mockUriSpec.retrieve()).thenReturn(mockResponseSpec);
+            
+            // Simuliamo il comportamento del corpo di risposta:
+            // la prima chiamata per Citta1 restituisce null (scatenando l'eccezione),
+            // la seconda chiamata per Citta2 restituisce una risposta valida.
+            MeteoResponse mockResponse = new MeteoResponse();
+            MeteoResponse.CurrentWeather mockWeather = new MeteoResponse.CurrentWeather();
+            mockWeather.setTemperature(18.0);
+            mockResponse.setCurrentWeather(mockWeather);
+
+            when(mockResponseSpec.body(MeteoResponse.class))
+                    .thenReturn(null)          // Citta1 fallisce
+                    .thenReturn(mockResponse);  // Citta2 ha successo
+
+            WeatherService serviceWithMockedClient = new WeatherService(cityRepository, measurementRepository);
+
+            // When
+            serviceWithMockedClient.syncWeatherData();
+
+            // Then: Nonostante il fallimento di Citta1, lo scheduler non si è interrotto
+            // ed è arrivato a salvare i dati di Citta2. Quindi avremo esattamente 1 salvataggio.
+            verify(measurementRepository, times(1)).save(any(WeatherMeasurement.class));
+        }
+    }
+    
+    @Test
     public void fetchAndSaveWeatherData_ShouldFetchAndSaveCorrectly() {
         // Given
         City citta1 = new City("Citta1", 41.9028, 12.4964);
