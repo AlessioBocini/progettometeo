@@ -280,4 +280,45 @@ public class WeatherServiceTest {
             verify(measurementRepository, never()).save(any(WeatherMeasurement.class));
         }
     }
+
+    @Test
+    public void syncWeatherData_ShouldFetchAndSaveDataForEachCity() {
+        // Given: due città nel database
+        City citta1 = new City("Citta1", 41.9028, 12.4964);
+        citta1.setId(1L);
+        City citta2 = new City("Citta2", 45.4642, 9.1900);
+        citta2.setId(2L);
+
+        when(cityRepository.findAll()).thenReturn(List.of(citta1, citta2));
+
+        // Prepariamo il mock statico per il RestClient (come hai fatto negli altri test)
+        try (MockedStatic<RestClient> mockedRestClientStatic = Mockito.mockStatic(RestClient.class)) {
+            RestClient mockClient = mock(RestClient.class);
+            RestClient.RequestHeadersUriSpec mockUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+            RestClient.ResponseSpec mockResponseSpec = mock(RestClient.ResponseSpec.class);
+
+            MeteoResponse mockResponse = new MeteoResponse();
+            MeteoResponse.CurrentWeather mockWeather = new MeteoResponse.CurrentWeather();
+            mockWeather.setTemperature(15.0);
+            mockWeather.setWindSpeed(10.0);
+            mockWeather.setWindDirection(180.0);
+            mockResponse.setCurrentWeather(mockWeather);
+
+            mockedRestClientStatic.when(RestClient::create).thenReturn(mockClient);
+            when(mockClient.get()).thenReturn(mockUriSpec);
+            when(mockUriSpec.uri(anyString())).thenReturn(mockUriSpec);
+            when(mockUriSpec.retrieve()).thenReturn(mockResponseSpec);
+            when(mockResponseSpec.body(MeteoResponse.class)).thenReturn(mockResponse);
+
+            // Istanziamo il servizio per usare il RestClient mockato staticamente
+            WeatherService serviceWithMockedClient = new WeatherService(cityRepository, measurementRepository);
+
+            // When: Chiamiamo il metodo dello scheduler MANUALMENTE
+            serviceWithMockedClient.syncWeatherData();
+
+            // Then
+            verify(cityRepository, times(1)).findAll();
+            verify(measurementRepository, times(2)).save(any(WeatherMeasurement.class));
+        }
+    }
 }
