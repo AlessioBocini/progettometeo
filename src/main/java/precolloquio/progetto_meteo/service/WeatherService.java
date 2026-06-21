@@ -7,18 +7,27 @@ import precolloquio.progetto_meteo.entity.WeatherMeasurement;
 import precolloquio.progetto_meteo.repository.CityRepo;
 import precolloquio.progetto_meteo.repository.WeatherMeasurementRepo;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Service
+
+@Service 
 public class WeatherService {
 
     private final CityRepo cityRepository;
     private final WeatherMeasurementRepo measurementRepository;
     private final RestClient restClient;
+
+    private static final Logger logger = LoggerFactory.getLogger(WeatherService.class);
 
     public WeatherService(CityRepo cityRepository, WeatherMeasurementRepo measurementRepository) {
         this.cityRepository = cityRepository;
@@ -92,5 +101,25 @@ public class WeatherService {
 
             return new CityAverageResponse(city.getName(), avgTemp, avgWindSpeed, avgWindDir);
         }).collect(Collectors.toList());
+    }
+
+
+
+    @Scheduled(fixedRate = 10000) 
+    public void syncWeatherData() {
+        logger.info("Inizio sincronizzazione pianificata dei dati meteo...");
+        
+        List<City> cities = cityRepository.findAll();
+        
+        for (City city : cities) {
+            try {
+                logger.info("Recupero dati meteo per: {}", city.getName());
+                fetchAndSaveWeatherData(city);
+            } catch (Exception e) {
+                logger.error("Errore durante il recupero dei dati per " + city.getName(), e);
+            }
+        }
+        
+        logger.info("Sincronizzazione completata.");
     }
 }
