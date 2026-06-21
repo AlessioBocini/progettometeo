@@ -73,16 +73,21 @@ public class WeatherService {
         List<City> cities = cityRepository.findAll();
         
         return cities.stream().map(city -> {
-            Object[] averages = measurementRepository.getAverageMetricsByCityId(city.getId());
+            List<Object[]> results = measurementRepository.getAverageMetricsByCityId(city.getId());
             
             Double avgTemp = 0.0;
             Double avgWindSpeed = 0.0;
             Double avgWindDir = 0.0;
 
-            if (averages != null && averages.length > 0 && averages[0] != null) {
-                avgTemp = (Double) averages[0];
-                avgWindSpeed = (Double) averages[1];
-                avgWindDir = (Double) averages[2];
+            if (results != null && !results.isEmpty()) {
+                Object[] averages = results.get(0); 
+                
+                if (averages != null && averages.length > 0 && averages[0] != null) {
+                
+                    avgTemp = averages[0] != null ? ((Number) averages[0]).doubleValue() : 0.0;
+                    avgWindSpeed = averages[1] != null ? ((Number) averages[1]).doubleValue() : 0.0;
+                    avgWindDir = averages[2] != null ? ((Number) averages[2]).doubleValue() : 0.0;
+                }
             }
 
             return new CityAverageResponse(city.getName(), avgTemp, avgWindSpeed, avgWindDir);

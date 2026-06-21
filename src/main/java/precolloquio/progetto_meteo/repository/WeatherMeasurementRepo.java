@@ -17,5 +17,5 @@ public interface WeatherMeasurementRepo extends JpaRepository<WeatherMeasurement
        FROM WeatherMeasurement wm 
        WHERE wm.city.id = :cityId
     """)
-    Object[] getAverageMetricsByCityId(@Param("cityId") Long cityId);
+    List<Object[]> getAverageMetricsByCityId(@Param("cityId") Long cityId);
 }

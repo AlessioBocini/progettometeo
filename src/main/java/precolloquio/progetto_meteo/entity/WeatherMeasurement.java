@@ -12,6 +12,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
 @Entity
 @Table(name = "weather_measurements")
 @NoArgsConstructor
@@ -24,6 +27,7 @@ public class WeatherMeasurement {
 
     @ManyToOne
     @JoinColumn(name = "city_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private City city;
 
     private Double temperature;

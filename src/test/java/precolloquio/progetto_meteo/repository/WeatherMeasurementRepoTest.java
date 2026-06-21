@@ -41,7 +41,7 @@ public class WeatherMeasurementRepoTest {
         assertThat(results.get(1).getTemperature()).isEqualTo(20.0);
     }
 
-    @Test
+   @Test
     public void getAverageMetricsByCityId_ShouldCalculateCorrectAverages() {
         // Given
         City citta2 = cityRepo.save(new City("citta2", 45.4642, 9.1900));
@@ -51,16 +51,18 @@ public class WeatherMeasurementRepoTest {
         measurementRepo.saveAll(List.of(m1, m2));
 
         // When
-        Object[] results = measurementRepo.getAverageMetricsByCityId(citta2.getId());
+        List<Object[]> results = measurementRepo.getAverageMetricsByCityId(citta2.getId());
 
         // Then
-        assertThat(results).isNotNull();
+        assertThat(results).isNotEmpty(); 
 
-        Object[] averages = (Object[]) results[0];
+        Object[] averages = results.get(0); 
         assertThat(averages.length).isEqualTo(3);
-        assertThat((Double) averages[0]).isEqualTo(15.0);   
-        assertThat((Double) averages[1]).isEqualTo(10.0);   
-        assertThat((Double) averages[2]).isEqualTo(150.0);  
+        
+        // Usiamo il cast a Number per essere resilienti a come il database H2 mappa internamente la media
+        assertThat(((Number) averages[0]).doubleValue()).isEqualTo(15.0);   
+        assertThat(((Number) averages[1]).doubleValue()).isEqualTo(10.0);   
+        assertThat(((Number) averages[2]).doubleValue()).isEqualTo(150.0);  
     }
 
     @Test
@@ -69,13 +71,13 @@ public class WeatherMeasurementRepoTest {
         City citta1 = cityRepo.save(new City("Citta1", 41.9028, 12.4964));
 
         // When
-        Object[] results = measurementRepo.getAverageMetricsByCityId(citta1.getId());
+        List<Object[]> results = measurementRepo.getAverageMetricsByCityId(citta1.getId());
 
         // Then
-        assertThat(results).isNotNull();
+        assertThat(results).isNotEmpty();
         
-        Object[] averages = (Object[]) results[0];
-      
+        Object[] averages = results.get(0); 
+    
         assertThat(averages).isNotNull();
         assertThat(averages[0]).isNull();
         assertThat(averages[1]).isNull();
